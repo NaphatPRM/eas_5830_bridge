@@ -20,7 +20,7 @@ contract Destination is AccessControl {
 	event Unwrap( address indexed underlying_token, address indexed wrapped_token, address frm, address indexed to, uint256 amount );
 
     constructor( address admin ) {
-        admin = admin // or use address(this) not sure if this works
+        admin = admin; // or use address(this) not sure if this works
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(CREATOR_ROLE, admin);
         _grantRole(WARDEN_ROLE, admin);
@@ -35,13 +35,13 @@ contract Destination is AccessControl {
     require(_amount != 0, "Amount more than 0");
 
     // Lookup the BridgeToken that corresponds to the underlying
-    address lookup_token = underlying_tokens[_underlying_token]
+    address lookup_token = wrapped_tokens[_underlying_token];
     // Checking the conditions : Must already call the createToken
     require(lookup_token != address(0), "Must exist the address");
     // The wrap function should emit a Wrap event.
-    emit Wrap(_underlying_token, address indexed wrapped_token, _recipient, _amount);
+    emit Wrap(_underlying_token, lookup_token, _recipient, _amount);
     // mint the correct amount of BridgeTokens to the recipient.
-    BridgeToken(lookup_token).mint(_recipient, _amount)
+    BridgeToken(lookup_token).mint(_recipient, _amount);
 	}
 
 	function unwrap(address _wrapped_token, address _recipient, uint256 _amount ) public {
@@ -49,33 +49,31 @@ contract Destination is AccessControl {
     require(_wrapped_token != address(0), "ERC20: wrapped token is the zero address");
     require(_recipient != address(0), "ERC20: cannot have recipient from the zero address");
     // Get the underlying token
-    address lookup_underlying = wrapped_tokens[_wrapped_token]
+    address lookup_underlying = underlying_tokens[_wrapped_token];
     // Checking the conditions : Must already call the createToken
     require(lookup_underlying != address(0), "Must exist the address");
     // Emit a function of Unwrap
-    emit Unwrap(lookup_underlying, _wrapped_token, admin, _recipient, _amount);
-    // Burn the token
-    BridgeToken(lookup_token).clawBack(_recipient, _amount)
+    emit Unwrap(lookup_underlying, _wrapped_token, msg.sender, _recipient, _amount);
+    // Burn the token : burn their BridgeToken - Wrapped one
+    BridgeToken(_wrapped_token).clawBack(msg.sender, _amount);
 	}
 
 	function createToken(address _underlying_token, string memory name, string memory symbol ) public onlyRole(CREATOR_ROLE) returns(address) {
 		//YOUR CODE HERE
     // Checking the conditions : address 
     require(_underlying_token != address(0), "ERC20: create token from the zero address");
+    // the owner of the destination contract will need create
     // The createToken function should emit a Creation event.
-    emit Creation(_underlying_token, address indexed wrapped_token );
-
-    // the owner of the destination contract will need create 
+    emit Creation(_underlying_token, address(0));
     // new BridgeToken instance on the destination chain.
-    BridgeToken bridge_token = new BridgeToken(_underlying_token, name, symbol, admin)
+    BridgeToken bridge_token = new BridgeToken(_underlying_token, name, symbol, address(this));
     // add to the corresponding map?
-    underlying_tokens[_underlying_token] = address(bridge_token)
-    wrapped_tokens[address(bridge_token)] = _underlying_token
-    
+    wrapped_tokens[_underlying_token] = address(bridge_token);
+    underlying_tokens[address(bridge_token)] = _underlying_token;
+    tokens.push(address(bridge_token));
     // return the address of the newly created contract.
-    return address(bridge_token)
+    return address(bridge_token);
 	}
-
 }
 
 
