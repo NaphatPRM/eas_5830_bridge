@@ -5,6 +5,7 @@ from pathlib import Path
 import json
 from datetime import datetime
 import pandas as pd
+import csv
 
 
 def scan_blocks(chain, start_block, end_block, contract_address, eventfile='deposit_logs.csv'):
